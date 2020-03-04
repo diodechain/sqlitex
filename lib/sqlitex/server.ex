@@ -126,6 +126,11 @@ defmodule Sqlitex.Server do
     {:reply, result, Process.delete({:state, pid})}
   end
 
+  def handle_cast({:query, sql, opts}, state) do
+    {:reply, _rep, state} = handle_call({:query, sql, opts}, nil, state)
+    {:noreply, state}
+  end
+
   def handle_cast(:stop, {db, stmt_cache, config}) do
     {:stop, :normal, {db, stmt_cache, config}}
   end
@@ -153,6 +158,16 @@ defmodule Sqlitex.Server do
   """
   def query(pid, sql, opts \\ []) do
     call(pid, {:query, sql, opts}, opts)
+  end
+
+  @doc """
+  Same as `Sqlitex.Query.query/3` but using the shared db connections saved in the GenServer state and
+  executing async.
+
+  Returns the results otherwise.
+  """
+  def query_async(pid, sql, opts \\ []) do
+    GenServer.cast(pid, {:query, sql, opts})
   end
 
   @doc """

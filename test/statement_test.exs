@@ -5,9 +5,10 @@ defmodule Sqlitex.StatementTest do
   test "fetch_all! works" do
     {:ok, db} = Sqlitex.open(":memory:")
 
-    result = db
-              |> Sqlitex.Statement.prepare!("PRAGMA user_version;")
-              |> Sqlitex.Statement.fetch_all!(db_timeout: 1_000)
+    result =
+      db
+      |> Sqlitex.Statement.prepare!("PRAGMA user_version;")
+      |> Sqlitex.Statement.fetch_all!(db_timeout: 1_000)
 
     assert result == [[user_version: 0]]
   end
@@ -15,9 +16,10 @@ defmodule Sqlitex.StatementTest do
   test "fetch_all! works with db_chunk_size" do
     {:ok, db} = Sqlitex.open(":memory:")
 
-    result = db
-              |> Sqlitex.Statement.prepare!("PRAGMA user_version;")
-              |> Sqlitex.Statement.fetch_all!(db_timeout: 1_000, db_chunk_size: 1_000)
+    result =
+      db
+      |> Sqlitex.Statement.prepare!("PRAGMA user_version;")
+      |> Sqlitex.Statement.fetch_all!(db_timeout: 1_000, db_chunk_size: 1_000)
 
     assert result == [[user_version: 0]]
   end
@@ -27,8 +29,12 @@ defmodule Sqlitex.StatementTest do
 
     Sqlitex.exec(db, "CREATE TABLE x(id INTEGER PRIMARY KEY AUTOINCREMENT, str)")
 
-    stmt = Sqlitex.Statement.prepare!(db, "INSERT INTO x(str) VALUES (?1) "
-                                          <> ";--RETURNING ON INSERT x,id")
+    stmt =
+      Sqlitex.Statement.prepare!(
+        db,
+        "INSERT INTO x(str) VALUES (?1) " <>
+          ";--RETURNING ON INSERT x,id"
+      )
 
     rows = Sqlitex.Statement.fetch_all!(stmt, db_timeout: 1_000)
     assert rows == [[id: 1]]
@@ -39,8 +45,12 @@ defmodule Sqlitex.StatementTest do
 
     Sqlitex.exec(db, "CREATE TABLE x(id INTEGER PRIMARY KEY AUTOINCREMENT, str)")
 
-    stmt = Sqlitex.Statement.prepare!(db, "INSERT INTO x(str) VALUES (?1) "
-                                          <> ";--RETURNING ON INSERT x,id")
+    stmt =
+      Sqlitex.Statement.prepare!(
+        db,
+        "INSERT INTO x(str) VALUES (?1) " <>
+          ";--RETURNING ON INSERT x,id"
+      )
 
     rows = Sqlitex.Statement.fetch_all!(stmt, into: :raw_list)
     assert rows == [[1]]
@@ -51,8 +61,12 @@ defmodule Sqlitex.StatementTest do
 
     Sqlitex.exec(db, "CREATE TABLE x(id INTEGER PRIMARY KEY AUTOINCREMENT, str)")
 
-    stmt = Sqlitex.Statement.prepare!(db, "INSERT INTO x(str) VALUES ('x'),('y'),('z') "
-                                          <> ";--RETURNING ON INSERT x,id")
+    stmt =
+      Sqlitex.Statement.prepare!(
+        db,
+        "INSERT INTO x(str) VALUES ('x'),('y'),('z') " <>
+          ";--RETURNING ON INSERT x,id"
+      )
 
     rows = Sqlitex.Statement.fetch_all!(stmt, db_timeout: 1_000)
     assert rows == [[id: 1], [id: 2], [id: 3]]
@@ -63,8 +77,12 @@ defmodule Sqlitex.StatementTest do
 
     Sqlitex.exec(db, "CREATE TABLE x(id INTEGER PRIMARY KEY AUTOINCREMENT, str)")
 
-    stmt = Sqlitex.Statement.prepare!(db, "INSERT INTO x(str) VALUES ('x'),('y'),('z') "
-                                          <> ";--RETURNING ON INSERT x,id")
+    stmt =
+      Sqlitex.Statement.prepare!(
+        db,
+        "INSERT INTO x(str) VALUES ('x'),('y'),('z') " <>
+          ";--RETURNING ON INSERT x,id"
+      )
 
     rows = Sqlitex.Statement.fetch_all!(stmt, db_timeout: 1_000, into: :raw_list)
     assert rows == [[1], [2], [3]]
@@ -78,8 +96,12 @@ defmodule Sqlitex.StatementTest do
 
     Sqlitex.exec(db, "INSERT INTO x(str) VALUES ('x'),('y'),('z')")
 
-    stmt = Sqlitex.Statement.prepare!(db, "INSERT INTO x(str) VALUES ('x') "
-                                          <> ";--RETURNING ON INSERT x,id")
+    stmt =
+      Sqlitex.Statement.prepare!(
+        db,
+        "INSERT INTO x(str) VALUES ('x') " <>
+          ";--RETURNING ON INSERT x,id"
+      )
 
     result = Sqlitex.Statement.fetch_all(stmt, db_timeout: 1_000, into: :raw_list)
     assert result == {:error, {:constraint, 'UNIQUE constraint failed: x.str'}}
@@ -88,19 +110,20 @@ defmodule Sqlitex.StatementTest do
   test "custom query timeouts are passed through to esqlite" do
     {:ok, db} = Sqlitex.open(":memory:")
 
-    {:error, reason, _} = catch_throw(
-      db
-      |> Sqlitex.Statement.prepare!("""
-        WITH RECURSIVE r(i) AS (
-          VALUES(0)
-          UNION ALL
-          SELECT i FROM r
-          LIMIT 1000000
-        )
-        SELECT i FROM r WHERE i = 1
-      """)
-      |> Sqlitex.Statement.fetch_all!(db_timeout: 1)
-    )
+    {:error, reason, _} =
+      catch_throw(
+        db
+        |> Sqlitex.Statement.prepare!("""
+          WITH RECURSIVE r(i) AS (
+            VALUES(0)
+            UNION ALL
+            SELECT i FROM r
+            LIMIT 1000000
+          )
+          SELECT i FROM r WHERE i = 1
+        """)
+        |> Sqlitex.Statement.fetch_all!(db_timeout: 1)
+      )
 
     assert reason == :timeout
   end
@@ -118,9 +141,10 @@ defmodule Sqlitex.StatementTest do
 
     :ok = Sqlitex.exec(db, "CREATE TABLE bv (id INTEGER PRIMARY KEY);")
 
-    result = db
-              |> Sqlitex.Statement.prepare!("SELECT * FROM bv")
-              |> Sqlitex.Statement.bind_values([1])
+    result =
+      db
+      |> Sqlitex.Statement.prepare!("SELECT * FROM bv")
+      |> Sqlitex.Statement.bind_values([1])
 
     assert result == {:error, :args_wrong_length}
   end
@@ -130,9 +154,10 @@ defmodule Sqlitex.StatementTest do
 
     :ok = Sqlitex.exec(db, "CREATE TABLE bv (id INTEGER PRIMARY KEY);")
 
-    assert {:ok, _stmt} = db
-              |> Sqlitex.Statement.prepare!("SELECT * FROM bv WHERE id = ?1")
-              |> Sqlitex.Statement.bind_values([1])
+    assert {:ok, _stmt} =
+             db
+             |> Sqlitex.Statement.prepare!("SELECT * FROM bv WHERE id = ?1")
+             |> Sqlitex.Statement.bind_values([1])
   end
 
   test "build_values! raise" do
@@ -172,5 +197,4 @@ defmodule Sqlitex.StatementTest do
       |> Sqlitex.Statement.exec!(db_timeout: 1_000)
     end
   end
-
 end

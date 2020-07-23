@@ -26,8 +26,7 @@ defmodule Sqlitex.Server.StatementCache do
   Will return `{:error, reason}` if SQLite is unable to prepare the statement.
   """
   def prepare(%__MODULE__{cached_stmts: cached_stmts} = cache, sql, opts \\ [])
-    when is_binary(sql) and byte_size(sql) > 0
-  do
+      when is_binary(sql) and byte_size(sql) > 0 do
     case Map.fetch(cached_stmts, sql) do
       {:ok, stmt} -> {update_cache_for_read(cache, sql), stmt}
       :error -> prepare_new_statement(cache, sql, opts)
@@ -37,37 +36,40 @@ defmodule Sqlitex.Server.StatementCache do
   defp prepare_new_statement(%__MODULE__{db: db} = cache, sql, opts) do
     case Sqlitex.Statement.prepare(db, sql, opts) do
       {:ok, prepared} ->
-        cache = cache
+        cache =
+          cache
           |> store_new_stmt(sql, prepared)
           |> purge_cache_if_full
           |> update_cache_for_read(sql)
 
         {cache, prepared}
-      error -> error
+
+      error ->
+        error
     end
   end
 
-  defp store_new_stmt(%__MODULE__{size: size, cached_stmts: cached_stmts} = cache,
-                      sql, prepared)
-  do
+  defp store_new_stmt(%__MODULE__{size: size, cached_stmts: cached_stmts} = cache, sql, prepared) do
     %{cache | size: size + 1, cached_stmts: Map.put(cached_stmts, sql, prepared)}
   end
 
-  defp purge_cache_if_full(%__MODULE__{size: size,
-                                       limit: limit,
-                                       cached_stmts: cached_stmts,
-                                       lru: [purge_victim | lru]} = cache)
-    when size > limit
-  do
-    %{cache | size: size - 1,
-              cached_stmts: Map.drop(cached_stmts, [purge_victim]),
-              lru: lru}
+  defp purge_cache_if_full(
+         %__MODULE__{
+           size: size,
+           limit: limit,
+           cached_stmts: cached_stmts,
+           lru: [purge_victim | lru]
+         } = cache
+       )
+       when size > limit do
+    %{cache | size: size - 1, cached_stmts: Map.drop(cached_stmts, [purge_victim]), lru: lru}
   end
 
   defp purge_cache_if_full(cache), do: cache
 
   defp update_cache_for_read(%__MODULE__{lru: lru} = cache, sql) do
-    lru = lru
+    lru =
+      lru
       |> Enum.reject(&(&1 == sql))
       |> Kernel.++([sql])
 

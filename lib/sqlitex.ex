@@ -1,10 +1,10 @@
 defmodule Sqlitex do
-  if Version.compare(System.version, "1.3.0") == :lt do
+  if Version.compare(System.version(), "1.3.0") == :lt do
     @type charlist :: char_list
   end
 
   @type connection :: {:connection, reference(), reference()}
-  @type string_or_charlist :: String.t | charlist
+  @type string_or_charlist :: String.t() | charlist
   @type sqlite_error :: {:error, {:sqlite_error, charlist}}
 
   @moduledoc """
@@ -58,15 +58,16 @@ defmodule Sqlitex do
   alias Sqlitex.Config
 
   @spec close(connection) :: :ok
-  @spec close(connection, Keyword.t) :: :ok
+  @spec close(connection, Keyword.t()) :: :ok
   def close(db, opts \\ []) do
     :esqlite3.close(db, Config.db_timeout(opts))
   end
 
-  @spec open(charlist | String.t) :: {:ok, connection} | {:error, {atom, charlist}}
-  @spec open(charlist | String.t, Keyword.t) :: {:ok, connection} | {:error, {atom, charlist}}
+  @spec open(charlist | String.t()) :: {:ok, connection} | {:error, {atom, charlist}}
+  @spec open(charlist | String.t(), Keyword.t()) :: {:ok, connection} | {:error, {atom, charlist}}
   def open(path, opts \\ [])
   def open(path, opts) when is_binary(path), do: open(string_to_charlist(path), opts)
+
   def open(path, opts) do
     :esqlite3.open(path, Config.db_timeout(opts))
   end
@@ -103,29 +104,37 @@ defmodule Sqlitex do
   This is generally useful for things like re-playing a SQL export back into the database.
   """
   @spec exec(connection, string_or_charlist) :: :ok | sqlite_error
-  @spec exec(connection, string_or_charlist, Keyword.t) :: :ok | sqlite_error
+  @spec exec(connection, string_or_charlist, Keyword.t()) :: :ok | sqlite_error
   def exec(db, sql, opts \\ []) do
     :esqlite3.exec(sql, db, Config.db_timeout(opts))
   end
 
   @doc "A shortcut to `Sqlitex.Query.query/3`"
-  @spec query(Sqlitex.connection, String.t | charlist) :: {:ok, [keyword]} | {:error, term()}
-  @spec query(Sqlitex.connection, String.t | charlist, [{atom, term}]) :: {:ok, [keyword]} | {:error, term()}
+  @spec query(Sqlitex.connection(), String.t() | charlist) :: {:ok, [keyword]} | {:error, term()}
+  @spec query(Sqlitex.connection(), String.t() | charlist, [{atom, term}]) ::
+          {:ok, [keyword]} | {:error, term()}
   def query(db, sql, opts \\ []), do: Sqlitex.Query.query(db, sql, opts)
 
   @doc "A shortcut to `Sqlitex.Query.query!/3`"
-  @spec query!(Sqlitex.connection, String.t | charlist) :: [keyword]
-  @spec query!(Sqlitex.connection, String.t | charlist, [bind: [], into: Enum.t, db_timeout: integer()]) :: [Enum.t]
+  @spec query!(Sqlitex.connection(), String.t() | charlist) :: [keyword]
+  @spec query!(Sqlitex.connection(), String.t() | charlist,
+          bind: [],
+          into: Enum.t(),
+          db_timeout: integer()
+        ) :: [Enum.t()]
   def query!(db, sql, opts \\ []), do: Sqlitex.Query.query!(db, sql, opts)
 
   @doc "A shortcut to `Sqlitex.Query.query_rows/3`"
-  @spec query_rows(Sqlitex.connection, String.t | charlist) :: {:ok, %{}} | Sqlitex.sqlite_error
-  @spec query_rows(Sqlitex.connection, String.t | charlist, [bind: [], db_timeout: integer()]) :: {:ok, %{}} | Sqlitex.sqlite_error
+  @spec query_rows(Sqlitex.connection(), String.t() | charlist) ::
+          {:ok, %{}} | Sqlitex.sqlite_error()
+  @spec query_rows(Sqlitex.connection(), String.t() | charlist, bind: [], db_timeout: integer()) ::
+          {:ok, %{}} | Sqlitex.sqlite_error()
   def query_rows(db, sql, opts \\ []), do: Sqlitex.Query.query_rows(db, sql, opts)
 
   @doc "A shortcut to `Sqlitex.Query.query_rows!/3`"
-  @spec query_rows!(Sqlitex.connection, String.t | charlist) :: %{}
-  @spec query_rows!(Sqlitex.connection, String.t | charlist, [bind: [], db_timeout: integer()]) :: %{}
+  @spec query_rows!(Sqlitex.connection(), String.t() | charlist) :: %{}
+  @spec query_rows!(Sqlitex.connection(), String.t() | charlist, bind: [], db_timeout: integer()) ::
+          %{}
   def query_rows!(db, sql, opts \\ []), do: Sqlitex.Query.query_rows!(db, sql, opts)
 
   @doc """
@@ -163,12 +172,12 @@ defmodule Sqlitex do
       iex> Sqlitex.query(db, "select * from foo")
       {:ok, [[{:id, 42}]]}
   """
-  @spec with_transaction(Sqlitex.connection, (Sqlitex.connection -> any()), Keyword.t) :: any
+  @spec with_transaction(Sqlitex.connection(), (Sqlitex.connection() -> any()), Keyword.t()) ::
+          any
   def with_transaction(db, fun, opts \\ []) do
     with :ok <- exec(db, "begin", opts),
-      {:ok, result} <- apply_rescuing(fun, [db]),
-      :ok <- exec(db, "commit", opts)
-    do
+         {:ok, result} <- apply_rescuing(fun, [db]),
+         :ok <- exec(db, "commit", opts) do
       {:ok, result}
     else
       err ->
@@ -177,15 +186,15 @@ defmodule Sqlitex do
     end
   end
 
- if Version.compare(System.version, "1.3.0") == :lt do
-   defp string_to_charlist(string), do: String.to_char_list(string)
- else
-   defp string_to_charlist(string), do: String.to_charlist(string)
- end
+  if Version.compare(System.version(), "1.3.0") == :lt do
+    defp string_to_charlist(string), do: String.to_char_list(string)
+  else
+    defp string_to_charlist(string), do: String.to_charlist(string)
+  end
 
- ## Private Helpers
+  ## Private Helpers
 
- defp apply_rescuing(fun, args) do
+  defp apply_rescuing(fun, args) do
     try do
       {:ok, apply(fun, args)}
     rescue

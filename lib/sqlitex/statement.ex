@@ -1,5 +1,6 @@
 defmodule Sqlitex.Statement do
   alias Sqlitex.Row
+
   @moduledoc """
   Provides an interface for working with SQLite prepared statements.
 
@@ -99,7 +100,7 @@ defmodule Sqlitex.Statement do
          {:ok, stmt} <- get_column_names(stmt, timeout),
          {:ok, stmt} <- get_column_types(stmt, timeout),
          {:ok, stmt} <- extract_returning_clause(stmt, sql),
-    do: {:ok, stmt}
+         do: {:ok, stmt}
   end
 
   @doc """
@@ -182,7 +183,9 @@ defmodule Sqlitex.Statement do
   """
   def fetch_all(statement, opts \\ []) do
     case raw_fetch_all(statement, opts) do
-      {:error, _} = other -> other
+      {:error, _} = other ->
+        other
+
       raw_data ->
         into = Keyword.get(opts, :into, [])
         {:ok, Row.from(statement.column_types, statement.column_names, raw_data, into)}
@@ -192,6 +195,7 @@ defmodule Sqlitex.Statement do
   defp raw_fetch_all(%__MODULE__{returning: nil, statement: statement}, opts) do
     :esqlite3.fetchall(statement, Config.db_chunk_size(opts), Config.db_timeout(opts))
   end
+
   defp raw_fetch_all(statement, opts) do
     returning_query(statement, opts)
   end
@@ -251,7 +255,9 @@ defmodule Sqlitex.Statement do
     case :esqlite3.prepare(sql, db, timeout) do
       {:ok, statement} ->
         {:ok, %Sqlitex.Statement{database: db, statement: statement}}
-      other -> other
+
+      other ->
+        other
     end
   end
 
@@ -259,7 +265,8 @@ defmodule Sqlitex.Statement do
     names =
       sqlite_statement
       |> :esqlite3.column_names(timeout)
-      |> Tuple.to_list
+      |> Tuple.to_list()
+
     {:ok, %Sqlitex.Statement{statement | column_names: names}}
   end
 
@@ -267,7 +274,8 @@ defmodule Sqlitex.Statement do
     types =
       sqlite_statement
       |> :esqlite3.column_types(timeout)
-      |> Tuple.to_list
+      |> Tuple.to_list()
+
     {:ok, %Sqlitex.Statement{statement | column_types: types}}
   end
 
@@ -285,19 +293,27 @@ defmodule Sqlitex.Statement do
   end
 
   defp date_to_string({yr, mo, da}) do
-    Enum.join [zero_pad(yr, 4), "-", zero_pad(mo, 2), "-", zero_pad(da, 2)]
+    Enum.join([zero_pad(yr, 4), "-", zero_pad(mo, 2), "-", zero_pad(da, 2)])
   end
 
   def time_to_string({hr, mi, se, usecs}) do
-    Enum.join [zero_pad(hr, 2), ":", zero_pad(mi, 2), ":", zero_pad(se, 2), ".", zero_pad(usecs, 6)]
+    Enum.join([
+      zero_pad(hr, 2),
+      ":",
+      zero_pad(mi, 2),
+      ":",
+      zero_pad(se, 2),
+      ".",
+      zero_pad(usecs, 6)
+    ])
   end
 
   defp datetime_to_string({date = {_yr, _mo, _da}, time = {_hr, _mi, _se, _usecs}}) do
-    Enum.join [date_to_string(date), " ", time_to_string(time)]
+    Enum.join([date_to_string(date), " ", time_to_string(time)])
   end
 
   defp zero_pad(num, len) do
-    str = Integer.to_string num
+    str = Integer.to_string(num)
     String.duplicate("0", len - String.length(str)) <> str
   end
 
@@ -308,11 +324,17 @@ defmodule Sqlitex.Statement do
   defp extract_returning_clause(statement, sql) do
     if Regex.match?(@pseudo_returning_statement, sql) do
       [_, returning_clause] = Regex.split(@pseudo_returning_statement, sql, parts: 2)
+
       case parse_return_contents(returning_clause) do
         {_table, cols, _command, _ref} = info ->
-          {:ok, %{statement | returning: info,
-                              column_names: Enum.map(cols, &String.to_atom/1),
-                              column_types: Enum.map(cols, fn _ -> nil end)}}
+          {:ok,
+           %{
+             statement
+             | returning: info,
+               column_names: Enum.map(cols, &String.to_atom/1),
+               column_types: Enum.map(cols, fn _ -> nil end)
+           }}
+
         err ->
           err
       end
@@ -348,21 +370,24 @@ defmodule Sqlitex.Statement do
       {:error, _} = error ->
         rollback(db, sp)
         error
+
       result ->
         {:ok, _} = db_exec(db, "RELEASE #{sp}")
         result
     end
   end
 
-  defp returning_query_in_savepoint(sp, %__MODULE__{database: db,
-                                                    statement: statement,
-                                                    returning: {table, cols, cmd, ref}}, opts)
-  do
+  defp returning_query_in_savepoint(
+         sp,
+         %__MODULE__{database: db, statement: statement, returning: {table, cols, cmd, ref}},
+         opts
+       ) do
     temp_table = "t_#{random_id()}"
     temp_fields = Enum.join(cols, ", ")
 
     trigger_name = "tr_#{random_id()}"
     trigger_fields = Enum.map_join(cols, ", ", &"#{ref}.#{&1}")
+
     trigger = """
     CREATE TEMP TRIGGER #{trigger_name} AFTER #{cmd} ON main.#{table} BEGIN
       INSERT INTO #{temp_table} SELECT #{trigger_fields};
@@ -373,11 +398,11 @@ defmodule Sqlitex.Statement do
 
     with {:ok, _} = db_exec(db, "CREATE TEMP TABLE #{temp_table} (#{temp_fields})"),
          {:ok, _} = db_exec(db, trigger),
-         result = :esqlite3.fetchall(statement, Config.db_chunk_size(opts), Config.db_timeout(opts)),
+         result =
+           :esqlite3.fetchall(statement, Config.db_chunk_size(opts), Config.db_timeout(opts)),
          {:ok, rows} = db_exec(db, "SELECT #{column_names} FROM #{temp_table}"),
          {:ok, _} = db_exec(db, "DROP TRIGGER IF EXISTS #{trigger_name}"),
-         {:ok, _} = db_exec(db, "DROP TABLE IF EXISTS #{temp_table}")
-    do
+         {:ok, _} = db_exec(db, "DROP TABLE IF EXISTS #{temp_table}") do
       if is_list(result), do: rows, else: result
     end
   catch
@@ -391,15 +416,16 @@ defmodule Sqlitex.Statement do
     {:ok, _} = db_exec(db, "RELEASE #{sp}")
   end
 
-  @spec db_exec(Sqlitex.connection, iodata()) :: {:ok, [tuple()]}
+  @spec db_exec(Sqlitex.connection(), iodata()) :: {:ok, [tuple()]}
   defp db_exec(db, sql) do
     case :esqlite3.q(sql, db) do
       {:error, _} = error ->
         error
+
       result ->
         {:ok, result}
     end
   end
 
-  defp random_id, do: :rand.uniform |> Float.to_string |> String.slice(2..10)
+  defp random_id, do: :rand.uniform() |> Float.to_string() |> String.slice(2..10)
 end

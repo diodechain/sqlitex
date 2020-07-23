@@ -65,18 +65,19 @@ defmodule Sqlitex.Server do
   """
   def start_link(db_path, opts \\ []) do
     stmt_cache_size = Keyword.get(opts, :stmt_cache_size, 20)
+
     config = [
       db_timeout: Config.db_timeout(opts),
       db_chunk_size: Config.db_chunk_size(opts)
     ]
+
     GenServer.start_link(__MODULE__, {db_path, stmt_cache_size, config}, opts)
   end
 
   ## GenServer callbacks
 
   def init({db_path, stmt_cache_size, config})
-    when is_integer(stmt_cache_size) and stmt_cache_size > 0
-  do
+      when is_integer(stmt_cache_size) and stmt_cache_size > 0 do
     case Sqlitex.open(db_path, config) do
       {:ok, db} -> {:ok, {db, __MODULE__.StatementCache.new(db, stmt_cache_size), config}}
       {:error, reason} -> {:stop, reason}
@@ -129,14 +130,18 @@ defmodule Sqlitex.Server do
   def handle_info({:query, sql, opts}, state) do
     queries = collect(100, [{sql, opts}])
 
-    state = if length(queries) > 1 do
-      queries = [{"BEGIN TRANSACTION", []} | Enum.reverse([{"COMMIT TRANSACTION", []} | queries])]
-      Enum.reduce(queries, state, fn {sql, opts}, state ->
+    state =
+      if length(queries) > 1 do
+        queries = [
+          {"BEGIN TRANSACTION", []} | Enum.reverse([{"COMMIT TRANSACTION", []} | queries])
+        ]
+
+        Enum.reduce(queries, state, fn {sql, opts}, state ->
+          async_query_impl(state, sql, opts)
+        end)
+      else
         async_query_impl(state, sql, opts)
-      end)
-    else
-      async_query_impl(state, sql, opts)
-    end
+      end
 
     {:noreply, state}
   end
@@ -252,10 +257,12 @@ defmodule Sqlitex.Server do
     if pid == self() do
       key = {:state, pid}
       state = Process.get(key)
+
       case command do
         {:with_transaction, fun} ->
           {db, _stmt_cache, _config} = state
           {:ok, fun.(db)}
+
         _other ->
           {:reply, result, state} = handle_call(command, nil, state)
           Process.put(key, state)
@@ -269,11 +276,13 @@ defmodule Sqlitex.Server do
   def collect(0, ret) do
     ret
   end
+
   def collect(n, ret) do
     receive do
-      {:query, sql, opt} -> collect(n-1, [{sql, opt} | ret])
-    after 0 ->
-      ret
+      {:query, sql, opt} -> collect(n - 1, [{sql, opt} | ret])
+    after
+      0 ->
+        ret
     end
   end
 
@@ -281,27 +290,25 @@ defmodule Sqlitex.Server do
     with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
          {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
          :ok <- Statement.exec!(stmt, opts),
-    do: {db, new_cache, config}
+         do: {db, new_cache, config}
   end
 
   defp query_impl(sql, stmt_cache, opts) do
     with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
          {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
          {:ok, rows} <- Statement.fetch_all(stmt, opts),
-    do: {:ok, rows, new_cache}
+         do: {:ok, rows, new_cache}
   end
 
   defp query_rows_impl(sql, stmt_cache, opts) do
     with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
          {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
          {:ok, rows} <- Statement.fetch_all(stmt, Keyword.put(opts, :into, :raw_list)),
-    do: {:ok,
-         %{rows: rows, columns: stmt.column_names, types: stmt.column_types},
-         new_cache}
+         do: {:ok, %{rows: rows, columns: stmt.column_names, types: stmt.column_types}, new_cache}
   end
 
   defp prepare_impl(sql, stmt_cache, opts) do
     with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
-    do: {:ok, %{columns: stmt.column_names, types: stmt.column_types}, new_cache}
+         do: {:ok, %{columns: stmt.column_names, types: stmt.column_types}, new_cache}
   end
 end

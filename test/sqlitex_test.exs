@@ -6,9 +6,11 @@ defmodule Sqlitex.Test do
 
   setup_all do
     {:ok, db} = Sqlitex.open(@shared_cache)
-    on_exit fn ->
+
+    on_exit(fn ->
       Sqlitex.close(db)
-    end
+    end)
+
     {:ok, golf_db: Sqlitex.TestDatabase.init(db)}
   end
 
@@ -28,66 +30,135 @@ defmodule Sqlitex.Test do
   test "server basic query" do
     {:ok, conn} = Sqlitex.Server.start_link(@shared_cache)
     {:ok, [row]} = Sqlitex.Server.query(conn, "SELECT * FROM players ORDER BY id LIMIT 1")
-    assert row == [id: 1, name: "Mikey", created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}}, updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}}, type: nil]
+
+    assert row == [
+             id: 1,
+             name: "Mikey",
+             created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}},
+             updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}},
+             type: nil
+           ]
+
     Sqlitex.Server.stop(conn)
   end
 
   test "server basic query with db_timeout and db_chink_size" do
     {:ok, conn} = Sqlitex.Server.start_link(@shared_cache)
-    {:ok, [row]} = Sqlitex.Server.query(conn, "SELECT * FROM players ORDER BY id LIMIT 1", db_timeout: 1_000, db_chunk_size: 10)
-    assert row == [id: 1, name: "Mikey", created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}}, updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}}, type: nil]
+
+    {:ok, [row]} =
+      Sqlitex.Server.query(conn, "SELECT * FROM players ORDER BY id LIMIT 1",
+        db_timeout: 1_000,
+        db_chunk_size: 10
+      )
+
+    assert row == [
+             id: 1,
+             name: "Mikey",
+             created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}},
+             updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}},
+             type: nil
+           ]
+
     Sqlitex.Server.stop(conn)
   end
 
   test "server basic query by name" do
     {:ok, _} = Sqlitex.Server.start_link(@shared_cache, name: :sql)
     {:ok, [row]} = Sqlitex.Server.query(:sql, "SELECT * FROM players ORDER BY id LIMIT 1")
-    assert row == [id: 1, name: "Mikey", created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}}, updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}}, type: nil]
+
+    assert row == [
+             id: 1,
+             name: "Mikey",
+             created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}},
+             updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}},
+             type: nil
+           ]
+
     Sqlitex.Server.stop(:sql)
   end
 
   test "that it returns an error for a bad query" do
     {:ok, _} = Sqlitex.Server.start_link(":memory:", name: :bad_create)
-    assert {:error, {:sqlite_error, 'near "WHAT": syntax error'}} == Sqlitex.Server.query(:bad_create, "CREATE WHAT")
+
+    assert {:error, {:sqlite_error, 'near "WHAT": syntax error'}} ==
+             Sqlitex.Server.query(:bad_create, "CREATE WHAT")
   end
 
   test "a basic query returns a list of keyword lists", context do
     {:ok, [row]} = Sqlitex.query(context[:golf_db], "SELECT * FROM players ORDER BY id LIMIT 1")
-    assert row == [id: 1, name: "Mikey", created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}}, updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}}, type: nil]
+
+    assert row == [
+             id: 1,
+             name: "Mikey",
+             created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}},
+             updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}},
+             type: nil
+           ]
   end
 
   test "a basic query returns a list of maps when into: %{} is given", context do
-    {:ok, [row]} = Sqlitex.query(context[:golf_db], "SELECT * FROM players ORDER BY id LIMIT 1", into: %{})
-    assert row == %{id: 1, name: "Mikey", created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}}, updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}}, type: nil}
+    {:ok, [row]} =
+      Sqlitex.query(context[:golf_db], "SELECT * FROM players ORDER BY id LIMIT 1", into: %{})
+
+    assert row == %{
+             id: 1,
+             name: "Mikey",
+             created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}},
+             updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}},
+             type: nil
+           }
   end
 
   test "with_db" do
-    {:ok, [row]} = Sqlitex.with_db(@shared_cache, fn(db) ->
-      Sqlitex.query(db, "SELECT * FROM players ORDER BY id LIMIT 1")
-    end)
+    {:ok, [row]} =
+      Sqlitex.with_db(@shared_cache, fn db ->
+        Sqlitex.query(db, "SELECT * FROM players ORDER BY id LIMIT 1")
+      end)
 
-    assert row == [id: 1, name: "Mikey", created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}}, updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}}, type: nil]
+    assert row == [
+             id: 1,
+             name: "Mikey",
+             created_at: {{2012, 10, 14}, {05, 46, 28, 318_107}},
+             updated_at: {{2013, 09, 06}, {22, 29, 36, 610_911}},
+             type: nil
+           ]
   end
 
   test "table creation works as expected" do
-    {:ok, [row]} = Sqlitex.with_db(":memory:", fn(db) ->
-      Sqlitex.create_table(db, :users, id: {:integer, [:primary_key, :not_null]}, name: :text)
-      Sqlitex.query(db, "SELECT * FROM sqlite_master", into: %{})
-    end)
+    {:ok, [row]} =
+      Sqlitex.with_db(":memory:", fn db ->
+        Sqlitex.create_table(db, :users, id: {:integer, [:primary_key, :not_null]}, name: :text)
+        Sqlitex.query(db, "SELECT * FROM sqlite_master", into: %{})
+      end)
 
     assert row.type == "table"
     assert row.name == "users"
     assert row.tbl_name == "users"
-    assert row.sql == "CREATE TABLE \"users\" (\"id\" integer PRIMARY KEY NOT NULL, \"name\" text )"
+
+    assert row.sql ==
+             "CREATE TABLE \"users\" (\"id\" integer PRIMARY KEY NOT NULL, \"name\" text )"
   end
 
   test "a parameterized query", context do
-    {:ok, [row]} = Sqlitex.query(context[:golf_db], "SELECT id, name FROM players WHERE name LIKE ?1 AND type == ?2", bind: ["s%", "Team"])
+    {:ok, [row]} =
+      Sqlitex.query(
+        context[:golf_db],
+        "SELECT id, name FROM players WHERE name LIKE ?1 AND type == ?2",
+        bind: ["s%", "Team"]
+      )
+
     assert row == [id: 25, name: "Slothstronauts"]
   end
 
   test "a parameterized query into %{}", context do
-    {:ok, [row]} = Sqlitex.query(context[:golf_db], "SELECT id, name FROM players WHERE name LIKE ?1 AND type == ?2", bind: ["s%", "Team"], into: %{})
+    {:ok, [row]} =
+      Sqlitex.query(
+        context[:golf_db],
+        "SELECT id, name FROM players WHERE name LIKE ?1 AND type == ?2",
+        bind: ["s%", "Team"],
+        into: %{}
+      )
+
     assert row == %{id: 25, name: "Slothstronauts"}
   end
 
@@ -109,7 +180,13 @@ defmodule Sqlitex.Test do
   test "it handles different cases of column types" do
     {:ok, db} = Sqlitex.open(":memory:")
     :ok = Sqlitex.exec(db, "CREATE TABLE t (inserted_at DATETIME, updated_at DateTime)")
-    :ok = Sqlitex.exec(db, "INSERT INTO t VALUES ('2012-10-14 05:46:28.312941', '2012-10-14 05:46:35.758815')")
+
+    :ok =
+      Sqlitex.exec(
+        db,
+        "INSERT INTO t VALUES ('2012-10-14 05:46:28.312941', '2012-10-14 05:46:35.758815')"
+      )
+
     {:ok, [row]} = Sqlitex.query(db, "SELECT inserted_at, updated_at FROM t")
     assert row[:inserted_at] == {{2012, 10, 14}, {5, 46, 28, 312_941}}
     assert row[:updated_at] == {{2012, 10, 14}, {5, 46, 35, 758_815}}
@@ -152,7 +229,10 @@ defmodule Sqlitex.Test do
   test "it inserts Erlang datetime tuples" do
     {:ok, db} = Sqlitex.open(":memory:")
     :ok = Sqlitex.exec(db, "CREATE TABLE t (dt DATETIME)")
-    {:ok, []} = Sqlitex.query(db, "INSERT INTO t VALUES (?)", bind: [{{1985, 10, 26}, {1, 20, 0, 666}}])
+
+    {:ok, []} =
+      Sqlitex.query(db, "INSERT INTO t VALUES (?)", bind: [{{1985, 10, 26}, {1, 20, 0, 666}}])
+
     {:ok, [row]} = Sqlitex.query(db, "SELECT dt FROM t")
     assert row[:dt] == {{1985, 10, 26}, {1, 20, 0, 666}}
   end
@@ -169,13 +249,22 @@ defmodule Sqlitex.Test do
     {:ok, db} = Sqlitex.open(":memory:")
     :ok = Sqlitex.exec(db, "CREATE TABLE t (num INTEGER)")
     {:ok, []} = Sqlitex.query(db, "INSERT INTO t VALUES (?)", bind: [1])
-    assert_raise Sqlitex.QueryError, "Query failed: {:sqlite_error, 'no such column: nope'}", fn ->
-      [_res] = Sqlitex.query!(db, "SELECT nope from t")
-    end
+
+    assert_raise Sqlitex.QueryError,
+                 "Query failed: {:sqlite_error, 'no such column: nope'}",
+                 fn ->
+                   [_res] = Sqlitex.query!(db, "SELECT nope from t")
+                 end
   end
 
   test "query_rows returns {:ok, data}", context do
-    {:ok, result} = Sqlitex.query_rows(context[:golf_db], "SELECT id, name FROM players WHERE name LIKE ?1 AND type == ?2", bind: ["s%", "Team"])
+    {:ok, result} =
+      Sqlitex.query_rows(
+        context[:golf_db],
+        "SELECT id, name FROM players WHERE name LIKE ?1 AND type == ?2",
+        bind: ["s%", "Team"]
+      )
+
     %{rows: rows, columns: columns, types: types} = result
     assert rows == [[25, "Slothstronauts"]]
     assert columns == [:id, :name]
@@ -188,7 +277,13 @@ defmodule Sqlitex.Test do
   end
 
   test "query_rows! returns data", context do
-    result = Sqlitex.query_rows!(context[:golf_db], "SELECT id, name FROM players WHERE name LIKE ?1 AND type == ?2", bind: ["s%", "Team"])
+    result =
+      Sqlitex.query_rows!(
+        context[:golf_db],
+        "SELECT id, name FROM players WHERE name LIKE ?1 AND type == ?2",
+        bind: ["s%", "Team"]
+      )
+
     %{rows: rows, columns: columns, types: types} = result
     assert rows == [[25, "Slothstronauts"]]
     assert columns == [:id, :name]
@@ -203,9 +298,14 @@ defmodule Sqlitex.Test do
 
   test "server query times out" do
     {:ok, conn} = Sqlitex.Server.start_link(":memory:")
-    assert match?({:timeout, _},
-      catch_exit(Sqlitex.Server.query(conn, "SELECT * FROM sqlite_master", timeout: 0)))
-    receive do # wait for the timed-out message
+
+    assert match?(
+             {:timeout, _},
+             catch_exit(Sqlitex.Server.query(conn, "SELECT * FROM sqlite_master", timeout: 0))
+           )
+
+    # wait for the timed-out message
+    receive do
       msg -> msg
     end
   end
@@ -235,15 +335,25 @@ defmodule Sqlitex.Test do
 
   test "decimal types with spaces near scale and precision" do
     {:ok, db} = Sqlitex.open(":memory:")
-    :ok = Sqlitex.exec(db, "CREATE TABLE t (f1 DECIMAL(3,2), f2 DECIMAL(3, 2), f3 DECIMAL( 3 ,2 ))")
-    {:ok, []} = Sqlitex.query(db, "INSERT INTO t VALUES (?,?,?)", bind: [Decimal.new("1.23"), Decimal.new("4.56"), Decimal.new("7.89")])
+
+    :ok =
+      Sqlitex.exec(db, "CREATE TABLE t (f1 DECIMAL(3,2), f2 DECIMAL(3, 2), f3 DECIMAL( 3 ,2 ))")
+
+    {:ok, []} =
+      Sqlitex.query(db, "INSERT INTO t VALUES (?,?,?)",
+        bind: [Decimal.new("1.23"), Decimal.new("4.56"), Decimal.new("7.89")]
+      )
+
     [row] = Sqlitex.query!(db, "SELECT f1, f2, f3 FROM t")
     assert row == [f1: Decimal.new("1.23"), f2: Decimal.new("4.56"), f3: Decimal.new("7.89")]
   end
 
   test "it handles datetime, date, time with empty string" do
     {:ok, db} = Sqlitex.open(":memory:")
-    :ok = Sqlitex.exec(db, "CREATE TABLE t (a datetime NOT NULL, b date NOT NULL, c time NOT NULL)")
+
+    :ok =
+      Sqlitex.exec(db, "CREATE TABLE t (a datetime NOT NULL, b date NOT NULL, c time NOT NULL)")
+
     {:ok, []} = Sqlitex.query(db, "INSERT INTO t VALUES (?, ?, ?)", bind: ["", "", ""])
     {:ok, [row]} = Sqlitex.query(db, "SELECT a, b, c FROM t")
     assert row[:a] == nil

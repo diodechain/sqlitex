@@ -303,18 +303,30 @@ defmodule Sqlitex.Server do
          do: {db, new_cache, config}
   end
 
+  defp warn_slow(sql, fun) do
+    {time, ret} = :timer.tc(fun)
+    if time > 1_000_000 do
+      IO.puts("Warning SLOW Sql: #{sql} took #{div(time, 10_000)/100}s")
+    end
+    ret
+  end
+
   defp query_impl(sql, stmt_cache, opts) do
+    warn_slow(sql, fn ->
     with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
          {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
          {:ok, rows} <- Statement.fetch_all(stmt, opts),
          do: {:ok, rows, new_cache}
+    end)
   end
 
   defp query_rows_impl(sql, stmt_cache, opts) do
-    with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
+    warn_slow(sql, fn ->
+      with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
          {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
          {:ok, rows} <- Statement.fetch_all(stmt, Keyword.put(opts, :into, :raw_list)),
          do: {:ok, %{rows: rows, columns: stmt.column_names, types: stmt.column_types}, new_cache}
+    end)
   end
 
   defp prepare_impl(sql, stmt_cache, opts) do

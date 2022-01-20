@@ -11,7 +11,7 @@ defmodule Sqlitex.Server.StatementCache do
   @doc """
   Creates a new prepared statement cache.
   """
-  def new({:connection, _, _} = db, limit) when is_integer(limit) and limit > 0 do
+  def new(db, limit) when is_integer(limit) and limit > 0 do
     %__MODULE__{db: db, limit: limit}
   end
 

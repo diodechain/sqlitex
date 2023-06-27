@@ -48,6 +48,7 @@ defmodule Sqlitex.Server do
   alias Sqlitex.Config
   alias Sqlitex.Server.StatementCache, as: Cache
   alias Sqlitex.Statement
+  require Logger
 
   @doc """
   Starts a SQLite Server (GenServer) instance.
@@ -256,7 +257,7 @@ defmodule Sqlitex.Server do
 
   ## Helpers
   defp call(nil, _command, _opts) do
-    throw :no_such_process
+    throw(:no_such_process)
   end
 
   defp call(atom, command, opts) when is_atom(atom) do
@@ -303,29 +304,40 @@ defmodule Sqlitex.Server do
          do: {db, new_cache, config}
   end
 
+  def warn_threshold(ms) when is_integer(ms) do
+    :persistent_term.put(:sqlitex_warn_threshold, ms)
+  end
+
+  def warn_threshold() do
+    :persistent_term.get(:sqlitex_warn_threshold, 200_000)
+  end
+
   defp warn_slow(sql, fun) do
     {time, ret} = :timer.tc(fun)
-    if time > 1_000_000 do
-      IO.puts("Warning SLOW Sql: #{sql} took #{div(time, 10_000)/100}s")
+
+    if time > warn_threshold() do
+      Logger.warn("SLOW Sql: #{sql} took #{div(time, 10_000) / 100}s")
     end
+
     ret
   end
 
   defp query_impl(sql, stmt_cache, opts) do
     warn_slow(sql, fn ->
-    with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
-         {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
-         {:ok, rows} <- Statement.fetch_all(stmt, opts),
-         do: {:ok, rows, new_cache}
+      with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
+           {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
+           {:ok, rows} <- Statement.fetch_all(stmt, opts),
+           do: {:ok, rows, new_cache}
     end)
   end
 
   defp query_rows_impl(sql, stmt_cache, opts) do
     warn_slow(sql, fn ->
       with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
-         {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
-         {:ok, rows} <- Statement.fetch_all(stmt, Keyword.put(opts, :into, :raw_list)),
-         do: {:ok, %{rows: rows, columns: stmt.column_names, types: stmt.column_types}, new_cache}
+           {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
+           {:ok, rows} <- Statement.fetch_all(stmt, Keyword.put(opts, :into, :raw_list)),
+           do:
+             {:ok, %{rows: rows, columns: stmt.column_names, types: stmt.column_types}, new_cache}
     end)
   end
 

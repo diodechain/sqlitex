@@ -15,9 +15,7 @@ defmodule Sqlitex.SqlBuilder do
     tbl_options = get_opts_map(table_opts, &table_opt/1)
     get_opt = &Map.get(tbl_options, &1, nil)
 
-    "CREATE #{get_opt.(:temp)} TABLE \"#{name}\" (#{get_columns_block(cols)} #{
-      get_opt.(:primary_key)
-    })"
+    "CREATE #{get_opt.(:temp)} TABLE \"#{name}\" (#{get_columns_block(cols)} #{get_opt.(:primary_key)})"
   end
 
   # Supported table options

@@ -65,11 +65,13 @@ defmodule Sqlitex.Server do
     This can also be set in `config.exs` as `config :sqlitex, db_chunk_size: 5_000`.
   """
   def start_link(db_path, opts \\ []) do
-    stmt_cache_size = Keyword.get(opts, :stmt_cache_size, 20)
+    {stmt_cache_size, opts} = Keyword.pop(opts, :stmt_cache_size, 20)
+    {db_timeout, opts} = Keyword.pop(opts, :db_timeout)
+    {db_chunk_size, opts} = Keyword.pop(opts, :db_chunk_size)
 
     config = [
-      db_timeout: Config.db_timeout(opts),
-      db_chunk_size: Config.db_chunk_size(opts)
+      db_timeout: db_timeout || Config.db_timeout(opts),
+      db_chunk_size: db_chunk_size || Config.db_chunk_size(opts)
     ]
 
     GenServer.start_link(__MODULE__, {db_path, stmt_cache_size, config}, opts)

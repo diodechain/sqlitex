@@ -68,10 +68,12 @@ defmodule Sqlitex.Server do
     {stmt_cache_size, opts} = Keyword.pop(opts, :stmt_cache_size, 20)
     {db_timeout, opts} = Keyword.pop(opts, :db_timeout)
     {db_chunk_size, opts} = Keyword.pop(opts, :db_chunk_size)
+    {init, opts} = Keyword.pop(opts, :init)
 
     config = [
       db_timeout: db_timeout || Config.db_timeout(opts),
-      db_chunk_size: db_chunk_size || Config.db_chunk_size(opts)
+      db_chunk_size: db_chunk_size || Config.db_chunk_size(opts),
+      init: init
     ]
 
     GenServer.start_link(__MODULE__, {db_path, stmt_cache_size, config}, opts)
@@ -82,8 +84,20 @@ defmodule Sqlitex.Server do
   def init({db_path, stmt_cache_size, config})
       when is_integer(stmt_cache_size) and stmt_cache_size > 0 do
     case Sqlitex.open(db_path, config) do
-      {:ok, db} -> {:ok, {db, __MODULE__.StatementCache.new(db, stmt_cache_size), config}}
-      {:error, reason} -> {:stop, reason}
+      {:ok, db} ->
+        state = {db, __MODULE__.StatementCache.new(db, stmt_cache_size), config}
+        init = Keyword.get(config, :init)
+
+        if init != nil do
+          Process.put({:state, self()}, state)
+          init.(self())
+          Process.delete({:state, self()})
+        end
+
+        {:ok, state}
+
+      {:error, reason} ->
+        {:stop, reason}
     end
   end
 

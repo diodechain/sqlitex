@@ -66,7 +66,7 @@ defmodule Sqlitex do
   @spec open(charlist | String.t()) :: {:ok, connection} | {:error, {atom, charlist}}
   @spec open(charlist | String.t(), Keyword.t()) :: {:ok, connection} | {:error, {atom, charlist}}
   def open(path, opts \\ [])
-  def open(path, opts) when is_binary(path), do: open(string_to_charlist(path), opts)
+  def open(path, opts) when is_binary(path), do: open(:binary.bin_to_list(path), opts)
 
   def open(path, opts) do
     :esqlite3.open(path, Config.db_timeout(opts))
@@ -184,12 +184,6 @@ defmodule Sqlitex do
         :ok = exec(db, "rollback", opts)
         err
     end
-  end
-
-  if Version.compare(System.version(), "1.3.0") == :lt do
-    defp string_to_charlist(string), do: String.to_char_list(string)
-  else
-    defp string_to_charlist(string), do: String.to_charlist(string)
   end
 
   ## Private Helpers

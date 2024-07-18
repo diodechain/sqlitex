@@ -138,10 +138,8 @@ defmodule Sqlitex.Server do
   end
 
   def handle_call({:with_transaction, fun}, _from, {db, _stmt_cache, _config} = state) do
-    pid = self()
-    Process.put({:state, pid}, state)
-    result = Sqlitex.with_transaction(db, fn _db -> fun.(pid) end)
-    {:reply, result, Process.delete({:state, pid})}
+    Process.put({:state, self()}, state)
+    {:reply, do_with_transaction(db, fun), Process.delete({:state, self()})}
   end
 
   def handle_info({:query, sql, opts}, state) do
@@ -288,7 +286,9 @@ defmodule Sqlitex.Server do
       case command do
         {:with_transaction, fun} ->
           {db, _stmt_cache, _config} = state
-          {:ok, fun.(db)}
+          with {:rescued, error, trace} <- do_with_transaction(db, fun) do
+            Kernel.reraise(error, trace)
+          end
 
         _other ->
           {:reply, result, state} = handle_call(command, nil, state)
@@ -297,6 +297,18 @@ defmodule Sqlitex.Server do
       end
     else
       GenServer.call(pid, command, Config.call_timeout(opts))
+    end
+  end
+
+  defp do_with_transaction(db, fun) do
+    if Process.get({:in_transaction, self()}) do
+      {:ok, fun.(db)}
+    else
+      Process.put({:in_transaction, self()}, true)
+      pid = self()
+      ret = Sqlitex.with_transaction(db, fn _db -> fun.(pid) end)
+      Process.delete({:in_transaction, self()})
+      ret
     end
   end
 

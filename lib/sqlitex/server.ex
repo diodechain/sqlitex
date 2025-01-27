@@ -347,6 +347,12 @@ defmodule Sqlitex.Server do
       Logger.warn("SLOW Sql: #{sql} took #{div(time, 10_000) / 100}s")
     end
 
+    :telemetry.execute(
+      [:sqlitex, :query, :done],
+      %{latency: time},
+      %{sql: sql}
+    )
+
     ret
   end
 

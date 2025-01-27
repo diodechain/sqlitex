@@ -344,7 +344,7 @@ defmodule Sqlitex.Server do
     {time, ret} = :timer.tc(fun)
 
     if time > warn_threshold() do
-      Logger.warn("SLOW Sql: #{sql} took #{div(time, 10_000) / 100}s")
+      Logger.warning("SLOW Sql: #{sql} took #{div(time, 10_000) / 100}s")
     end
 
     :telemetry.execute(

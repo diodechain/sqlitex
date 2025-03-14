@@ -109,6 +109,14 @@ defmodule Sqlitex do
     :esqlite3.exec(sql, db, Config.db_timeout(opts))
   end
 
+  @doc """
+  Returns the number of rows affected by the last statement.
+  """
+  @spec changes(connection) :: {:ok, integer()} | sqlite_error
+  def changes(db) do
+    :esqlite3.changes(db)
+  end
+
   @doc "A shortcut to `Sqlitex.Query.query/3`"
   @spec query(Sqlitex.connection(), String.t() | charlist) :: {:ok, [keyword]} | {:error, term()}
   @spec query(Sqlitex.connection(), String.t() | charlist, [{atom, term}]) ::

@@ -96,7 +96,10 @@ defmodule Sqlitex.Query do
     with {:ok, stmt} <- Statement.prepare(db, sql, opts),
          {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
          {:ok, rows} <- Statement.fetch_all(stmt, Keyword.put(opts, :into, :raw_list)),
-         do: {:ok, %{rows: rows, columns: stmt.column_names, types: stmt.column_types}}
+         {:ok, changes} <- Sqlitex.changes(stmt.database),
+         do:
+           {:ok,
+            %{rows: rows, columns: stmt.column_names, types: stmt.column_types, changes: changes}}
   end
 
   @doc """

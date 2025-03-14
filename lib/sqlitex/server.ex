@@ -286,6 +286,7 @@ defmodule Sqlitex.Server do
       case command do
         {:with_transaction, fun} ->
           {db, _stmt_cache, _config} = state
+
           with {:rescued, error, trace} <- do_with_transaction(db, fun) do
             Kernel.reraise(error, trace)
           end
@@ -370,8 +371,15 @@ defmodule Sqlitex.Server do
       with {%Cache{} = new_cache, stmt} <- Cache.prepare(stmt_cache, sql, opts),
            {:ok, stmt} <- Statement.bind_values(stmt, Keyword.get(opts, :bind, []), opts),
            {:ok, rows} <- Statement.fetch_all(stmt, Keyword.put(opts, :into, :raw_list)),
+           {:ok, changes} <- Sqlitex.changes(stmt.database),
            do:
-             {:ok, %{rows: rows, columns: stmt.column_names, types: stmt.column_types}, new_cache}
+             {:ok,
+              %{
+                rows: rows,
+                columns: stmt.column_names,
+                types: stmt.column_types,
+                changes: changes
+              }, new_cache}
     end)
   end
 

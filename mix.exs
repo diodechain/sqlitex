@@ -34,7 +34,7 @@ defmodule Sqlitex.Mixfile do
   # Type `mix help deps` for more examples and options
   defp deps do
     [
-      {:esqlite, github: "mmzeeman/esqlite"},
+      {:esqlite, github: "diodechain/esqlite", ref: "diode/stable"},
       {:decimal, "~> 1.7"},
       {:credo, "~> 0.10", only: [:dev, :test]},
       {:dialyxir, "~> 1.0.0-rc.4", only: [:dev, :test], runtime: false},
@@ -42,6 +42,7 @@ defmodule Sqlitex.Mixfile do
       {:ex_doc, "~> 0.20", only: :docs, runtime: false},
       {:excheck, "~> 0.6", only: :test},
       {:triq, "~> 1.3", only: :test},
+      {:benchee, "~> 1.0", only: :dev},
       {:telemetry, "~> 1.0"}
     ]
   end

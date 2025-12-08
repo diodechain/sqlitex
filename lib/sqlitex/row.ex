@@ -2,26 +2,24 @@ defmodule Sqlitex.Row do
   @moduledoc false
 
   def from(types, columns, rows, into) do
-    for row <- rows do
-      build_row(types, columns, row, into)
-    end
-  end
-
-  defp build_row(_types, _columns, row, :raw_list) do
-    Tuple.to_list(row)
-  end
-
-  defp build_row(types, columns, row, into) do
     types =
       Enum.map(types, fn type ->
         type |> Atom.to_string() |> String.downcase()
       end)
 
-    values = row |> Tuple.to_list() |> Enum.zip(types) |> Enum.map(&translate_value/1)
+    for row <- rows do
+      values = row |> Tuple.to_list() |> Enum.zip(types) |> Enum.map(&translate_value/1)
 
-    columns
-    |> Enum.zip(values)
-    |> Enum.into(into)
+      columns
+      |> Enum.zip(values)
+      |> Enum.into(into)
+    end
+  end
+
+  def from(_types, _columns, rows, :raw_list) do
+    for row <- rows do
+      Tuple.to_list(row)
+    end
   end
 
   ## Convert SQLite values/types to Elixir types

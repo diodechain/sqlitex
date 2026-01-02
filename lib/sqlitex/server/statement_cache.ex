@@ -6,7 +6,7 @@ defmodule Sqlitex.Server.StatementCache do
   were least-recently used when that limit is exceeded.
   """
 
-  defstruct db: false, size: 0, limit: 1, cached_stmts: %{}, lru: []
+  defstruct db: false, limit: 1, cached_stmts: %{}
 
   @doc """
   Creates a new prepared statement cache.
@@ -39,8 +39,8 @@ defmodule Sqlitex.Server.StatementCache do
         cache =
           cache
           |> store_new_stmt(sql, prepared)
-          |> purge_cache_if_full
           |> update_cache_for_read(sql)
+          |> purge_cache_if_full
 
         {cache, prepared}
 
@@ -49,30 +49,36 @@ defmodule Sqlitex.Server.StatementCache do
     end
   end
 
-  defp store_new_stmt(%__MODULE__{size: size, cached_stmts: cached_stmts} = cache, sql, prepared) do
-    %{cache | size: size + 1, cached_stmts: Map.put(cached_stmts, sql, prepared)}
+  defp store_new_stmt(%__MODULE__{cached_stmts: cached_stmts} = cache, sql, prepared) do
+    %{cache | cached_stmts: Map.put(cached_stmts, sql, prepared)}
   end
 
   defp purge_cache_if_full(
          %__MODULE__{
-           size: size,
            limit: limit,
-           cached_stmts: cached_stmts,
-           lru: [purge_victim | lru]
+           cached_stmts: cached_stmts
          } = cache
-       )
-       when size > limit do
-    %{cache | size: size - 1, cached_stmts: Map.drop(cached_stmts, [purge_victim]), lru: lru}
+       ) do
+    if map_size(cached_stmts) > 2 * limit do
+      cached_stmts =
+        Enum.sort_by(cached_stmts, fn {_sql, stmt} -> stmt.last_used end, :desc)
+        |> Enum.take(limit)
+        |> Map.new()
+
+      %{cache | cached_stmts: cached_stmts}
+    else
+      cache
+    end
   end
 
   defp purge_cache_if_full(cache), do: cache
 
-  defp update_cache_for_read(%__MODULE__{lru: lru} = cache, sql) do
-    lru =
-      lru
-      |> Enum.reject(&(&1 == sql))
-      |> Kernel.++([sql])
+  defp update_cache_for_read(cache = %__MODULE__{cached_stmts: cached_stmts}, sql) do
+    cached_stmts =
+      Map.update!(cached_stmts, sql, fn
+        stmt -> %{stmt | last_used: System.os_time(:millisecond)}
+      end)
 
-    %{cache | lru: lru}
+    %{cache | cached_stmts: cached_stmts}
   end
 end

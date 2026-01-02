@@ -72,7 +72,8 @@ defmodule Sqlitex.Statement do
             statement: nil,
             returning: nil,
             column_names: [],
-            column_types: []
+            column_types: [],
+            last_used: 0
 
   alias Sqlitex.Config
 

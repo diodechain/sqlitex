@@ -104,7 +104,7 @@ defmodule Sqlitex.StatementTest do
       )
 
     result = Sqlitex.Statement.fetch_all(stmt, db_timeout: 1_000, into: :raw_list)
-    assert result == {:error, {:constraint, 'UNIQUE constraint failed: x.str'}}
+    assert result == {:error, {:constraint, ~c"UNIQUE constraint failed: x.str"}}
   end
 
   test "custom query timeouts are passed through to esqlite" do

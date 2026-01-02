@@ -2,7 +2,7 @@ defmodule Sqlitex.Test do
   use ExUnit.Case
   doctest Sqlitex
 
-  @shared_cache 'file::memory:?cache=shared'
+  @shared_cache ~c"file::memory:?cache=shared"
 
   setup_all do
     {:ok, db} = Sqlitex.open(@shared_cache)
@@ -18,13 +18,13 @@ defmodule Sqlitex.Test do
     :ok = Sqlitex.set_update_hook(db, self())
     :ok = Sqlitex.exec(db, "CREATE TABLE test (id INTEGER PRIMARY KEY, val STRING);")
     :ok = Sqlitex.exec(db, "INSERT INTO test (val) VALUES ('this is a test');")
-    assert_receive {:insert, 'test', 1}
+    assert_receive {:insert, ~c"test", 1}
 
     {:ok, conn} = Sqlitex.Server.start_link(@shared_cache)
     :ok = Sqlitex.Server.set_update_hook(conn, self())
     :ok = Sqlitex.Server.exec(conn, "CREATE TABLE blerps (id INTEGER PRIMARY KEY, val STRING);")
     :ok = Sqlitex.Server.exec(conn, "INSERT INTO blerps (val) VALUES ('this is a test');")
-    assert_receive {:insert, 'blerps', 1}
+    assert_receive {:insert, ~c"blerps", 1}
   end
 
   test "server basic query" do
@@ -80,7 +80,7 @@ defmodule Sqlitex.Test do
   test "that it returns an error for a bad query" do
     {:ok, _} = Sqlitex.Server.start_link(":memory:", name: :bad_create)
 
-    assert {:error, {:sqlite_error, 'near "WHAT": syntax error'}} ==
+    assert {:error, {:sqlite_error, ~c'near "WHAT": syntax error'}} ==
              Sqlitex.Server.query(:bad_create, "CREATE WHAT")
   end
 
@@ -172,7 +172,7 @@ defmodule Sqlitex.Test do
   end
 
   test "it handles queries with no columns" do
-    {:ok, db} = Sqlitex.open(':memory:')
+    {:ok, db} = Sqlitex.open(~c":memory:")
     assert {:ok, []} == Sqlitex.query(db, "CREATE TABLE t (a INTEGER, b INTEGER, c INTEGER)")
     Sqlitex.close(db)
   end
@@ -273,7 +273,7 @@ defmodule Sqlitex.Test do
 
   test "query_rows return {:error, reason}", context do
     {:error, reason} = Sqlitex.query_rows(context[:golf_db], "SELECT wat FROM players")
-    assert reason == {:sqlite_error, 'no such column: wat'}
+    assert reason == {:sqlite_error, ~c"no such column: wat"}
   end
 
   test "query_rows! returns data", context do
@@ -373,7 +373,7 @@ defmodule Sqlitex.Test do
   end
 
   test "with_transaction rollback" do
-    {:ok, db} = Sqlitex.open(':memory:')
+    {:ok, db} = Sqlitex.open(~c":memory:")
     :ok = Sqlitex.exec(db, "create table foo(id integer)")
 
     try do

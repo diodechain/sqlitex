@@ -35,7 +35,7 @@ defmodule Sqlitex.Server.StatementCacheTest do
     {:ok, db} = Sqlitex.open(":memory:")
     cache = S.new(db, 3)
 
-    assert {:error, {:sqlite_error, 'near "bogus": syntax error'}} =
+    assert {:error, {:sqlite_error, ~c'near "bogus": syntax error'}} =
              S.prepare(cache, "bogus", db_timeout: 5_000)
   end
 end

@@ -5,7 +5,7 @@ defmodule Sqlitex.ServerTest do
   test "with_transaction commit" do
     alias Sqlitex.Server
 
-    {:ok, server} = Server.start_link(':memory:')
+    {:ok, server} = Server.start_link(~c":memory:")
     :ok = Server.exec(server, "create table foo(id integer)")
 
     Server.with_transaction(server, fn db ->
@@ -18,7 +18,7 @@ defmodule Sqlitex.ServerTest do
   test "with_transaction rollback" do
     alias Sqlitex.Server
 
-    {:ok, server} = Server.start_link(':memory:')
+    {:ok, server} = Server.start_link(~c":memory:")
     :ok = Server.exec(server, "create table foo(id integer)")
 
     try do

@@ -1,6 +1,12 @@
 defmodule Sqlitex.Row do
   @moduledoc false
 
+  def from(_types, _columns, rows, :raw_list) do
+    for row <- rows do
+      Tuple.to_list(row)
+    end
+  end
+
   def from(types, columns, rows, into) do
     types =
       Enum.map(types, fn type ->
@@ -13,12 +19,6 @@ defmodule Sqlitex.Row do
       columns
       |> Enum.zip(values)
       |> Enum.into(into)
-    end
-  end
-
-  def from(_types, _columns, rows, :raw_list) do
-    for row <- rows do
-      Tuple.to_list(row)
     end
   end
 
